@@ -1,12 +1,12 @@
 {
   "projectId": "nfc-eventos-dbc31",
-  "appId": "1:977881307346:web:28c1d040a7cdd19408750b",
+  "appId": "1:977881307346:web:ee5dfe5c4a9f33d908750b",
   "apiKey": "AIzaSyCyiKcyDbbr-eh8-p0jIVjUvTOEyd2--Lk",
   "authDomain": "nfc-eventos-dbc31.firebaseapp.com",
   "firestoreDatabaseId": "ai-studio-nfceventos-d7a35d88-d4eb-48c7-9227-389296129c6f",
   "storageBucket": "nfc-eventos-dbc31.firebasestorage.app",
   "messagingSenderId": "977881307346",
-  "measurementId": "",
+  "measurementId": "G-N9RS4XE95L",
   "oAuthClientId": "977881307346-ul5sk0utc2kkcnkgk0c6di83gaogo6ke.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }
