@@ -265,6 +265,23 @@ export const CajaModule: React.FC = () => {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  openNfcModal({
+                    mode: 'QUERY',
+                    amountUSD: 0,
+                    title: 'Consultar Saldo de Pulsera NFC',
+                    subtitle: 'Acerca la pulsera o tarjeta del cliente para verificar su saldo actual e historial.',
+                  })
+                }
+                className="px-2.5 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                title="Consultar saldo de cualquier pulsera NFC"
+              >
+                <Radio className="w-3.5 h-3.5 text-purple-600 animate-pulse" />
+                <span className="hidden sm:inline">Consultar Saldo</span>
+              </button>
+
               <div className="px-3 py-1 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1.5 font-mono">
                 <span>1 USD =</span>
                 <span className="font-black">{formatBs(settings.bcvRate)}</span>

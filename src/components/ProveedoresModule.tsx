@@ -375,6 +375,22 @@ export const ProveedoresModule: React.FC = () => {
             <span>LEER NFC Y DESCONTAR</span>
             <ArrowRight className="w-5 h-5" />
           </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              openNfcModal({
+                mode: 'QUERY',
+                amountUSD: 0,
+                title: 'Consultar Saldo de Cliente',
+                subtitle: 'Acerca la pulsera del cliente para verificar cuánto saldo tiene disponible antes de ordenar.',
+              })
+            }
+            className="w-full mt-2.5 py-2 px-3 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+          >
+            <Radio className="w-3.5 h-3.5 text-purple-600 animate-pulse" />
+            <span>Ver Saldo de Pulsera del Cliente</span>
+          </button>
         </div>
       </div>
     </section>

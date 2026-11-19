@@ -46,12 +46,14 @@ import { INITIAL_SETTINGS, INITIAL_MASTER_SETTINGS } from '../data/initialData';
 import { soundSynth } from '../utils/audio';
 import { formatUSD, formatTime } from '../utils/formatters';
 
-interface NfcModalConfig {
-  mode: 'RECHARGE' | 'CHARGE';
+export interface NfcModalConfig {
+  mode: 'RECHARGE' | 'CHARGE' | 'QUERY';
   amountUSD: number;
   title: string;
   subtitle: string;
   paymentMethod?: PaymentMethod;
+  customAttendeeName?: string;
+  targetStickerId?: string;
 }
 
 interface ResultModalData {
@@ -209,7 +211,7 @@ interface AppContextType {
   setIsProductModalOpen: (open: boolean) => void;
   receiptModalTx: Transaction | null;
   setReceiptModalTx: (tx: Transaction | null) => void;
-  processNfcTap: (stickerId: string) => Promise<boolean>;
+  processNfcTap: (stickerId: string, customAttendeeName?: string) => Promise<boolean>;
 
   // Backup & Reset
   resetCurrentCompanyData: () => void;
@@ -1953,64 +1955,165 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Process NFC Tap (Atomic Firestore Batch for sticker balance + transaction creation)
   const processNfcTap = useCallback(
-    async (stickerId: string): Promise<boolean> => {
+    async (stickerId: string, customAttendeeName?: string): Promise<boolean> => {
       if (!nfcModalConfig || !currentCompany) return false;
-      const sticker = stickers.find(s => s.id === stickerId);
-      if (!sticker) return false;
+
+      // Clean and normalize physical tag hardware ID
+      const rawId = (stickerId || '').trim();
+      const cleanId =
+        rawId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) ||
+        `NFC-${Date.now().toString(36).slice(-6).toUpperCase()}`;
+
+      // Search matching sticker by exact ID or stripped prefix
+      let sticker = stickers.find(
+        s =>
+          s.id.toLowerCase() === cleanId.toLowerCase() ||
+          s.id.replace(/^NFC-/, '').toLowerCase() === cleanId.replace(/^NFC-/, '').toLowerCase()
+      );
 
       closeNfcModal();
 
-      if (sticker.status === 'blocked') {
+      // MODE: QUERY (Consulta de Saldo NFC)
+      if (nfcModalConfig.mode === 'QUERY') {
+        if (!sticker) {
+          soundSynth.playError(settings.enableSound);
+          setResultModal({
+            isOpen: true,
+            isSuccess: false,
+            title: 'Pulsera No Registrada',
+            message: `La pulsera NFC (${cleanId}) no tiene saldo ni ha sido activada en Caja aún.`,
+          });
+          return false;
+        }
+
+        soundSynth.playSuccess(settings.enableSound);
+        setResultModal({
+          isOpen: true,
+          isSuccess: true,
+          title: 'Consulta de Saldo NFC',
+          message: `Pulsera verificada correctamente.`,
+          details: {
+            stickerId: sticker.id,
+            owner: sticker.owner,
+            amountUSD: sticker.balance,
+            amountBs: Number((sticker.balance * settings.bcvRate).toFixed(2)),
+            newBalance: sticker.balance,
+            bcvRate: settings.bcvRate,
+            detail: `Total Recargado: ${formatUSD(sticker.totalRecharged || 0)} | Total Consumido: ${formatUSD(sticker.totalSpent || 0)}`,
+          },
+        });
+        return true;
+      }
+
+      // Check if sticker is blocked
+      if (sticker && sticker.status === 'blocked') {
         soundSynth.playError(settings.enableSound);
         setResultModal({
           isOpen: true,
           isSuccess: false,
-          title: 'Sticker Bloqueado',
-          message: `El sticker ${sticker.id} de ${sticker.owner} se encuentra bloqueado.`,
+          title: 'Pulsera Bloqueada',
+          message: `La pulsera ${sticker.id} de ${sticker.owner} se encuentra bloqueada por seguridad.`,
         });
         return false;
       }
 
+      // MODE: RECHARGE (Caja)
       if (nfcModalConfig.mode === 'RECHARGE') {
         const amountUSD = Number(nfcModalConfig.amountUSD.toFixed(2));
         const amountBs = Number((amountUSD * settings.bcvRate).toFixed(2));
-        const prevBalance = sticker.balance;
-        const newBalance = Number((prevBalance + amountUSD).toFixed(2));
-        const nextTotalRecharged = Number(((sticker.totalRecharged || 0) + amountUSD).toFixed(2));
+        const isNewTag = !sticker;
 
-        updateCurrentCompany(comp => ({
-          ...comp,
-          stickers: comp.stickers.map(s =>
-            s.id === sticker.id
-              ? {
-                  ...s,
-                  balance: newBalance,
-                  totalRecharged: nextTotalRecharged,
-                }
-              : s
-          ),
-        }));
+        let activeSticker: Sticker;
+        const colors = [
+          'from-blue-600 to-indigo-700',
+          'from-emerald-600 to-teal-700',
+          'from-purple-600 to-pink-600',
+          'from-amber-600 to-orange-700',
+          'from-rose-600 to-red-800',
+          'from-cyan-600 to-blue-700',
+        ];
+
+        if (isNewTag) {
+          const count = stickers.length + 1;
+          const shortHex = cleanId.replace(/^NFC-/, '').slice(-5).toUpperCase() || `${count}`;
+          const assignedOwner =
+            (customAttendeeName || nfcModalConfig.customAttendeeName || '').trim() ||
+            `Pulsera #${count} (${shortHex})`;
+
+          activeSticker = {
+            id: cleanId,
+            owner: clampStr(assignedOwner, 100),
+            balance: amountUSD,
+            totalRecharged: amountUSD,
+            totalSpent: 0,
+            color: colors[stickers.length % colors.length],
+            tagType: 'NTAG215',
+            status: 'active',
+            createdAt: new Date().toISOString(),
+          };
+
+          updateCurrentCompany(comp => ({
+            ...comp,
+            stickers: [...comp.stickers, activeSticker],
+          }));
+        } else {
+          const prevBalance = sticker.balance;
+          const newBalance = Number((prevBalance + amountUSD).toFixed(2));
+          const nextTotalRecharged = Number(((sticker.totalRecharged || 0) + amountUSD).toFixed(2));
+
+          activeSticker = {
+            ...sticker,
+            balance: newBalance,
+            totalRecharged: nextTotalRecharged,
+          };
+
+          updateCurrentCompany(comp => ({
+            ...comp,
+            stickers: comp.stickers.map(s => (s.id === sticker!.id ? activeSticker : s)),
+          }));
+        }
 
         const paymentMethod = nfcModalConfig.paymentMethod || 'Efectivo USD';
         const tx = addTransaction({
           type: 'RECARGA',
-          stickerId: sticker.id,
-          owner: sticker.owner,
+          stickerId: activeSticker.id,
+          owner: activeSticker.owner,
           usd: amountUSD,
           bs: amountBs,
           bcvRate: settings.bcvRate,
-          detail: `Recarga en Caja (${paymentMethod})`,
+          detail: isNewTag
+            ? `Activación y Primera Recarga en Caja (${paymentMethod})`
+            : `Recarga en Caja (${paymentMethod})`,
           paymentMethod,
         });
 
         if (isCloudSynced && firebaseUser) {
           const ownerUid = getCompanyOwnerUid(currentCompany) || firebaseUser.uid;
           const batch = writeBatch(db);
-          batch.update(doc(db, 'companies', currentCompany.id, 'stickers', sticker.id), {
-            balance: newBalance,
-            totalRecharged: nextTotalRecharged,
-            updatedAt: serverTimestamp(),
-          });
+
+          if (isNewTag) {
+            batch.set(doc(db, 'companies', currentCompany.id, 'stickers', activeSticker.id), {
+              id: activeSticker.id,
+              companyId: currentCompany.id,
+              ownerUid,
+              owner: clampStr(activeSticker.owner, 100),
+              balance: activeSticker.balance,
+              color: activeSticker.color,
+              tagType: activeSticker.tagType,
+              status: activeSticker.status,
+              totalRecharged: activeSticker.totalRecharged,
+              totalSpent: activeSticker.totalSpent,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
+          } else {
+            batch.update(doc(db, 'companies', currentCompany.id, 'stickers', activeSticker.id), {
+              balance: activeSticker.balance,
+              totalRecharged: activeSticker.totalRecharged,
+              updatedAt: serverTimestamp(),
+            });
+          }
+
           batch.set(doc(db, 'companies', currentCompany.id, 'transactions', tx.id), {
             id: tx.id,
             companyId: currentCompany.id,
@@ -2027,6 +2130,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             timestamp: tx.timestamp,
             createdAt: serverTimestamp(),
           });
+
           batch.commit().catch(err =>
             handleFirestoreError(err, OperationType.WRITE, `companies/${currentCompany.id}/transactions/${tx.id}`)
           );
@@ -2046,17 +2150,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setResultModal({
           isOpen: true,
           isSuccess: true,
-          title: '¡Recarga Exitosa!',
-          message: `Se han acreditado ${formatUSD(amountUSD)} en la etiqueta de ${sticker.owner}.`,
+          title: isNewTag ? '¡Pulsera Activada y Cargada!' : '¡Recarga Exitosa!',
+          message: isNewTag
+            ? `Se ha activado la pulsera ${activeSticker.id} de ${activeSticker.owner} con ${formatUSD(amountUSD)} de saldo inicial.`
+            : `Se han acreditado ${formatUSD(amountUSD)} a ${activeSticker.owner}.`,
           details: {
-            stickerId: sticker.id,
-            owner: sticker.owner,
+            stickerId: activeSticker.id,
+            owner: activeSticker.owner,
             amountUSD,
             amountBs,
-            prevBalance,
-            newBalance,
+            prevBalance: isNewTag ? 0 : sticker!.balance,
+            newBalance: activeSticker.balance,
             bcvRate: settings.bcvRate,
-            detail: `Método: ${paymentMethod}`,
+            detail: isNewTag ? `Activación nueva • Método: ${paymentMethod}` : `Método: ${paymentMethod}`,
           },
           transaction: tx,
         });
@@ -2064,7 +2170,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return true;
       }
 
+      // MODE: CHARGE (Proveedor / Stands)
       if (nfcModalConfig.mode === 'CHARGE') {
+        if (!sticker) {
+          soundSynth.playError(settings.enableSound);
+          setResultModal({
+            isOpen: true,
+            isSuccess: false,
+            title: 'Pulsera No Registrada',
+            message: `La pulsera NFC (${cleanId}) no está activada en el sistema. El cliente debe acudir a Caja primero para registrarla y recargar saldo.`,
+          });
+          return false;
+        }
+
         const totalUSD = Number(nfcModalConfig.amountUSD.toFixed(2));
         const prevBalance = sticker.balance;
 
@@ -2076,7 +2194,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             isOpen: true,
             isSuccess: false,
             title: 'Saldo Insuficiente',
-            message: `El sticker de ${sticker.owner} no cuenta con fondos suficientes para pagar esta orden.`,
+            message: `La pulsera de ${sticker.owner} no cuenta con fondos suficientes para pagar esta orden.`,
             details: {
               stickerId: sticker.id,
               owner: sticker.owner,
@@ -2097,7 +2215,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateCurrentCompany(comp => ({
           ...comp,
           stickers: comp.stickers.map(s =>
-            s.id === sticker.id
+            s.id === sticker!.id
               ? {
                   ...s,
                   balance: newBalance,
@@ -2177,7 +2295,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           isOpen: true,
           isSuccess: true,
           title: '¡Pago Aprobado!',
-          message: `Cobro procesado exitosamente con el sticker NFC de ${sticker.owner}.`,
+          message: `Cobro procesado exitosamente con la pulsera NFC de ${sticker.owner}.`,
           details: {
             stickerId: sticker.id,
             owner: sticker.owner,
