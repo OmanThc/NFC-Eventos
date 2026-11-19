@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PaySticker NFC - Sistema Cashless & BCV</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --color-primary: #2563eb;
+      --color-primary-hover: #1d4ed8;
+      --color-secondary: #10b981;
+      --color-bg: #f1f5f9;
+      --color-surface: #ffffff;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--color-bg);
+      color: #0f172a;
+      transition: background-color 0.3s ease;
+    }
+
+    .bg-primary { background-color: var(--color-primary); }
+    .hover\:bg-primary:hover { background-color: var(--color-primary-hover); }
+    .text-primary { color: var(--color-primary); }
+    .border-primary { border-color: var(--color-primary); }
+    .ring-primary:focus { --tw-ring-color: var(--color-primary); }
+
+    .bg-secondary { background-color: var(--color-secondary); }
+    .text-secondary { color: var(--color-secondary); }
+
+    /* Animación de ondas NFC */
+    @keyframes nfcPulse {
+      0% { transform: scale(0.85); opacity: 0.9; }
+      70% { transform: scale(1.65); opacity: 0; }
+      100% { transform: scale(1.65); opacity: 0; }
+    }
+    .nfc-ring {
+      animation: nfcPulse 1.8s infinite cubic-bezier(0.24, 0, 0.38, 1);
+    }
+    .nfc-ring-delay {
+      animation: nfcPulse 1.8s infinite cubic-bezier(0.24, 0, 0.38, 1) 0.6s;
+    }
+
+    /* Scrollbar limpio */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Barra Superior / Header Dinámico -->
+  <header class="bg-primary text-white shadow-md sticky top-0 z-30 transition-colors duration-300">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center shadow-inner">
+          <!-- Icono NFC SVG -->
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 8.32a7.43 7.43 0 0 1 0 7.36m3.5-9.68a11.4 11.4 0 0 1 0 12m3.5-14.32a15.38 15.38 0 0 1 0 16.64M16.5 1.36a19.35 19.35 0 0 1 0 21.28" />
+          </svg>
+        </div>
+        <div>
+          <h1 id="header-app-name" class="font-extrabold text-lg sm:text-xl leading-tight tracking-tight">PaySticker NFC</h1>
+          <p id="header-app-subtitle" class="text-xs text-white/80 font-medium">Sistema Cashless & Tasa BCV</p>
+        </div>
+      </div>
+
+      <!-- Indicador Tasa BCV y Estado NFC -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <div class="bg-black/20 px-3 py-1.5 rounded-xl flex items-center gap-2 border border-white/15">
+          <span class="text-xs uppercase tracking-wider text-white/80 font-semibold">Tasa BCV:</span>
+          <span id="header-bcv-rate" class="font-bold text-sm sm:text-base text-emerald-300">Bs. 52,40</span>
+        </div>
+        <button onclick="toggleStickersDrawer()" class="bg-white text-slate-900 hover:bg-slate-100 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold shadow flex items-center gap-1.5 transition active:scale-95">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Stickers NFC (<span id="active-stickers-count">3</span>)</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navegación Principal (3 Módulos) -->
+    <nav class="bg-black/15 border-t border-white/10">
+      <div class="max-w-7xl mx-auto px-2 sm:px-4 grid grid-cols-3 gap-1 py-1.5">
+        <button onclick="switchTab('caja')" id="tab-btn-caja" class="tab-btn flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm transition bg-white text-slate-900 shadow">
+          <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          </svg>
+          <span>1. CAJA (Recarga)</span>
+        </button>
+
+        <button onclick="switchTab('proveedores')" id="tab-btn-proveedores" class="tab-btn flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm transition text-white/85 hover:bg-white/10">
+          <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z" />
+          </svg>
+          <span>2. PROVEEDORES</span>
+        </button>
+
+        <button onclick="switchTab('admin')" id="tab-btn-admin" class="tab-btn flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm transition text-white/85 hover:bg-white/10">
+          <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
+          </svg>
+          <span>3. ADMINISTRADOR</span>
+        </button>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Banner Informativo de Simulador NFC (Siempre accesible arriba) -->
+  <div class="bg-slate-900 text-slate-200 text-xs py-2 px-4 border-b border-slate-800">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <span class="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">MODO DEMO INTERACTIVO</span>
+        <span>Prueba recargar en <strong>Caja</strong>, descontar en <strong>Proveedores</strong> o cambiar colores en <strong>Admin</strong>.</span>
+      </div>
+      <div class="flex items-center gap-3 overflow-x-auto py-0.5" id="quick-stickers-bar">
+        <!-- Renderizado dinámico de saldos de stickers -->
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENIDO PRINCIPAL -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
+
+    <!-- =================================================================== -->
+    <!-- MÓDULO 1: CAJA (CALCULADORA BCV Y RECARGA NFC)                      -->
+    <!-- =================================================================== -->
+    <section id="view-caja" class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        <!-- Calculadora BCV -->
+        <div class="lg:col-span-7 bg-white rounded-3xl shadow-sm border border-slate-200/80 p-5 sm:p-7">
+          <div class="flex items-center justify-between mb-5">
+            <div>
+              <h2 class="text-xl font-extrabold text-slate-800">Caja de Recarga NFC</h2>
+              <p class="text-sm text-slate-500">Ingresa el monto en USD ($) para calcular en Bolívares y cargar al sticker.</p>
+            </div>
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-primary border border-blue-100">
+              1 USD = <span id="caja-rate-badge">52,40</span> Bs.
+            </span>
+          </div>
+
+          <!-- Pantalla de Conversión Dual (USD -> Bs) -->
+          <div class="bg-slate-900 rounded-2xl p-5 text-white mb-5 shadow-inner relative overflow-hidden">
+            <div class="flex justify-between items-start mb-3">
+              <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Monto a Recargar (USD)</span>
+              <button onclick="clearCajaInput()" class="text-xs text-rose-400 hover:text-rose-300 font-semibold px-2 py-0.5 rounded bg-white/5">Limpiar</button>
+            </div>
+            
+            <div class="flex items-baseline gap-2 mb-4">
+              <span class="text-3xl sm:text-4xl font-bold text-emerald-400">$</span>
+              <input 
+                type="text" 
+                id="caja-usd-display" 
+                value="0.00" 
+                readonly
+                class="w-full bg-transparent text-4xl sm:text-5xl font-extrabold tracking-tight text-white focus:outline-none"
+              />
+            </div>
+
+            <div class="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+              <span class="text-xs text-slate-400 font-medium">Total a cobrar al cliente en Bolívares (BCV):</span>
+              <div class="text-right">
+                <span id="caja-bs-display" class="text-2xl sm:text-3xl font-extrabold text-amber-400">Bs. 0,00</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Botones de Montos Rápidos en USD -->
+          <div class="grid grid-cols-4 gap-2 mb-4">
+            <button onclick="addQuickAmount(5)" class="py-2 rounded-xl bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 text-sm transition active:scale-95">+$5</button>
+            <button onclick="addQuickAmount(10)" class="py-2 rounded-xl bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 text-sm transition active:scale-95">+$10</button>
+            <button onclick="addQuickAmount(20)" class="py-2 rounded-xl bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 text-sm transition active:scale-95">+$20</button>
+            <button onclick="addQuickAmount(50)" class="py-2 rounded-xl bg-slate-100 hover:bg-slate-200 font-bold text-slate-700 text-sm transition active:scale-95">+$50</button>
+          </div>
+
+          <!-- Teclado Numérico Táctil estilo POS -->
+          <div class="grid grid-cols-3 gap-2.5 mb-6">
+            <button onclick="pressCajaDigit('1')" class="h-14 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xl font-bold text-slate-800 shadow-sm active:scale-95 transition">1</button>
+            <button onclick="pressCajaDigit('2')" class="h-14 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xl font-bold text-slate-800 shadow-sm active:scale-95 transition">2</button>
+            <button onclick="pressCajaDigit('3')" class="h-14 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xl font-bold text-slate-800 shadow-sm active:scale-95 transition">3</button>
+            <button onclick="pressCajaDigit('4')" class="h-14 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xl font-bold text-slate-800 shadow-sm active:scale-95 transition">4</button>
+            <button onclick="pressCajaDigit('5')" class="h-14 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xl font-bold text-slate-800 shadow-sm active:scale-95 transition">5</button>
+            <button onclick="pressCajaDigit('6')" class="h-14 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xl font-bold text-slate-800 shadow-sm active:scale-95 transition">6</button>
+            <button onclick="pressCajaDigit('7')" class="h-14 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xl font-bold text-slate-800 shadow-sm active:scale-95 transition">7</button>
+            <button onclick="pressCajaDigit('8')" class="h-14 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xl font-bold text-slate-800 shadow-sm active:scale-95 transition">8</button>
+            <button onclick="pressCajaDigit('9')" class="h-14 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xl font-bold text-slate-800 shadow-sm active:scale-95 transition">9</button>
+            <button onclick="pressCajaDigit('00')" class="h-14 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xl font-bold text-slate-800 shadow-sm active:scale-95 transition">00</button>
+            <button onclick="pressCajaDigit('0')" class="h-14 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xl font-bold text-slate-800 shadow-sm active:scale-95 transition">0</button>
+            <button onclick="backspaceCajaDigit()" class="h-14 rounded-2xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 flex items-center justify-center shadow-sm active:scale-95 transition" title="Borrar">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9.75 14.25 12m0 0 2.25 2.25M14.25 12l2.25-2.25M14.25 12 12 14.25m-2.58 4.92-6.374-6.375a1.125 1.125 0 0 1 0-1.59L9.42 4.83c.21-.211.497-.33.795-.33H19.5a2.25 2.25 0 0 1 2.25 2.25v10.5a2.25 2.25 0 0 1-2.25 2.25h-9.284c-.298 0-.585-.119-.795-.33Z" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Botón Principal de Carga NFC -->
+          <button onclick="initiateNfcRecharge()" class="w-full py-4 px-6 rounded-2xl bg-primary hover:bg-primary text-white font-extrabold text-lg shadow-lg shadow-blue-500/25 flex items-center justify-center gap-3 transition transform active:scale-[0.99]">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" />
+            </svg>
+            <span>CARGAR SALDO EN NFC DEL CLIENTE</span>
+          </button>
+        </div>
+
+        <!-- Columna Derecha: Últimas Recargas de Caja -->
+        <div class="lg:col-span-5 bg-white rounded-3xl shadow-sm border border-slate-200/80 p-5 sm:p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-extrabold text-slate-800 text-lg">Últimas Recargas en Caja</h3>
+            <span class="text-xs font-semibold text-slate-400">Tiempo real</span>
+          </div>
+          <div id="caja-history-list" class="space-y-3 max-h-[470px] overflow-y-auto pr-1">
+            <!-- Se llena dinámicamente -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- MÓDULO 2: PROVEEDORES (CATÁLOGO Y COBRO CON DESCUENTO NFC)          -->
+    <!-- =================================================================== -->
+    <section id="view-proveedores" class="hidden space-y-6">
+      <!-- Barra superior de Proveedor + Agregar Producto Rápido -->
+      <div class="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex flex-wrap items-center gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Stand / Proveedor Activo</label>
+            <select id="provider-filter" onchange="renderProviderCatalog()" class="bg-slate-100 border border-slate-200 rounded-xl px-3.5 py-2 font-bold text-slate-800 text-sm focus:outline-none focus:ring-2 ring-primary">
+              <option value="ALL">Todos los Proveedores (Catálogo General)</option>
+              <option value="Burger Station">🍔 Burger Station</option>
+              <option value="Bebidas & Cocteles">🍹 Bebidas & Cocteles</option>
+              <option value="Dulces & Café">🍩 Dulces & Café</option>
+            </select>
+          </div>
+        </div>
+
+        <button onclick="openQuickProductModal()" class="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm flex items-center gap-2 shadow transition active:scale-95">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          <span>Registrar Nuevo Producto</span>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <!-- Catálogo de Productos -->
+        <div class="lg:col-span-7 space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-extrabold text-slate-800">Catálogo de Productos</h2>
+            <span id="catalog-count" class="text-xs font-semibold text-slate-500">0 productos</span>
+          </div>
+          <div id="provider-products-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
+            <!-- Tarjetas de producto renderizadas por JS -->
+          </div>
+        </div>
+
+        <!-- Carrito y Cobro NFC -->
+        <div class="lg:col-span-5 bg-white rounded-3xl shadow-sm border border-slate-200/80 p-5 sm:p-6 sticky top-28">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+            <div class="flex items-center gap-2">
+              <h3 class="font-extrabold text-slate-800 text-lg">Orden del Cliente</h3>
+              <span id="cart-items-badge" class="px-2 py-0.5 rounded-full bg-primary text-white text-xs font-bold">0</span>
+            </div>
+            <button onclick="clearCart()" class="text-xs font-bold text-rose-500 hover:text-rose-600">Vaciar</button>
+          </div>
+
+          <div id="cart-items-container" class="space-y-3 min-h-[180px] max-h-[320px] overflow-y-auto pr-1 mb-5">
+            <!-- Items del carrito -->
+          </div>
+
+          <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200/70 mb-4 space-y-1.5">
+            <div class="flex justify-between text-xs text-slate-500 font-medium">
+              <span>Referencia en Bolívares (BCV):</span>
+              <span id="cart-total-bs" class="font-bold text-slate-700">Bs. 0,00</span>
+            </div>
+            <div class="flex justify-between items-baseline pt-1">
+              <span class="text-sm font-bold text-slate-700">Total a Descontar:</span>
+              <span id="cart-total-usd" class="text-3xl font-extrabold text-slate-900">$0.00</span>
+            </div>
+          </div>
+
+          <button onclick="initiateNfcCharge()" class="w-full py-4 px-5 rounded-2xl bg-secondary hover:opacity-95 text-white font-extrabold text-base sm:text-lg shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2.5 transition transform active:scale-[0.99]">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" />
+            </svg>
+            <span>LEER NFC Y DESCONTAR</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- MÓDULO 3: ADMINISTRADOR (FINANZAS, PRODUCTOS Y COLORES WHITE-LABEL) -->
+    <!-- =================================================================== -->
+    <section id="view-admin" class="hidden space-y-6">
+      
+      <!-- KPIs Financieros en Tiempo Real -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Recaudado en Caja (USD)</span>
+          <p id="admin-kpi-caja-usd" class="text-3xl font-extrabold text-slate-900 mt-1">$0.00</p>
+          <p class="text-xs text-emerald-600 font-semibold mt-1">Ingresos totales recargados</p>
+        </div>
+
+        <div class="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Recaudado en Bolívares</span>
+          <p id="admin-kpi-caja-bs" class="text-2xl sm:text-3xl font-extrabold text-amber-600 mt-1">Bs. 0,00</p>
+          <p class="text-xs text-slate-500 font-medium mt-1">Calculado a tasa BCV del momento</p>
+        </div>
+
+        <div class="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Consumido en Proveedores</span>
+          <p id="admin-kpi-spent-usd" class="text-3xl font-extrabold text-primary mt-1">$0.00</p>
+          <p class="text-xs text-slate-500 font-medium mt-1">Ventas procesadas vía NFC</p>
+        </div>
+
+        <div class="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Saldo Flotante en NFC</span>
+          <p id="admin-kpi-floating-usd" class="text-3xl font-extrabold text-emerald-600 mt-1">$0.00</p>
+          <p class="text-xs text-slate-500 font-medium mt-1">Disponible en stickers activos</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Columna Izquierda: Tasa BCV + Personalización Total de la App -->
+        <div class="lg:col-span-5 space-y-6">
+          
+          <!-- Control Tasa BCV -->
+          <div class="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm">
+            <h3 class="font-extrabold text-slate-800 text-lg mb-1">Tasa Oficial BCV</h3>
+            <p class="text-xs text-slate-500 mb-4">Actualiza el valor del dólar en Bolívares para toda la aplicación.</p>
+            <div class="flex gap-2">
+              <div class="relative flex-1">
+                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-slate-400">Bs.</span>
+                <input type="number" step="0.01" id="admin-bcv-input" value="52.40" class="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-300 font-extrabold text-slate-900 text-lg focus:outline-none focus:ring-2 ring-primary" />
+              </div>
+              <button onclick="updateBcvRate()" class="px-5 py-3 rounded-xl bg-primary hover:bg-primary text-white font-bold text-sm shadow transition active:scale-95">
+                Actualizar
+              </button>
+            </div>
+          </div>
+
+          <!-- Personalización White-Label (Colores y Textos de toda la App) -->
+          <div class="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-extrabold text-slate-800 text-lg">Personalizar Apariencia</h3>
+                <p class="text-xs text-slate-500">Modifica marca, colores y estilo en vivo.</p>
+              </div>
+              <button onclick="resetTheme()" class="text-xs font-bold text-slate-500 hover:text-slate-800 underline">Restaurar</button>
+            </div>
+
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Nombre de la App / Evento</label>
+                <input type="text" id="theme-name-input" value="PaySticker NFC" oninput="applyThemeLive()" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm font-semibold focus:outline-none focus:ring-2 ring-primary" />
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Subtítulo / Eslogan</label>
+                <input type="text" id="theme-subtitle-input" value="Sistema Cashless & Tasa BCV" oninput="applyThemeLive()" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 ring-primary" />
+              </div>
+
+              <div class="grid grid-cols-3 gap-3 pt-2">
+                <div>
+                  <label class="block text-xs font-bold text-slate-600 mb-1">Color Principal</label>
+                  <input type="color" id="theme-primary-color" value="#2563eb" oninput="applyThemeLive()" class="w-full h-10 rounded-xl cursor-pointer border border-slate-200 p-1" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-600 mb-1">Color Cobro / Acento</label>
+                  <input type="color" id="theme-secondary-color" value="#10b981" oninput="applyThemeLive()" class="w-full h-10 rounded-xl cursor-pointer border border-slate-200 p-1" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-600 mb-1">Color de Fondo</label>
+                  <input type="color" id="theme-bg-color" value="#f1f5f9" oninput="applyThemeLive()" class="w-full h-10 rounded-xl cursor-pointer border border-slate-200 p-1" />
+                </div>
+              </div>
+
+              <!-- Temas Predefinidos Rápidos -->
+              <div class="pt-2">
+                <span class="block text-xs font-bold text-slate-500 mb-2">Paletas Rápidas:</span>
+                <div class="flex flex-wrap gap-2">
+                  <button onclick="setPresetTheme('#2563eb', '#10b981', '#f1f5f9')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-100 text-blue-800 hover:bg-blue-200">Azul Fintech</button>
+                  <button onclick="setPresetTheme('#7c3aed', '#ec4899', '#faf5ff')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-100 text-purple-800 hover:bg-purple-200">Festival Neon</button>
+                  <button onclick="setPresetTheme('#0f172a', '#f59e0b', '#f8fafc')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-200 text-slate-900 hover:bg-slate-300">Ejecutivo Dark/Oro</button>
+                  <button onclick="setPresetTheme('#059669', '#0284c7', '#ecfdf5')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-800 hover:bg-emerald-200">Esmeralda</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Columna Derecha: Gestor Completo de Productos y Precios -->
+        <div class="lg:col-span-7 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 class="font-extrabold text-slate-800 text-lg">Gestión de Productos y Precios</h3>
+              <p class="text-xs text-slate-500">Edita nombres, precios en USD ($), proveedores o elimina productos.</p>
+            </div>
+            <button onclick="openQuickProductModal()" class="px-3.5 py-2 rounded-xl bg-primary text-white font-bold text-xs shadow hover:bg-primary transition">
+              + Nuevo Producto
+            </button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-slate-200 text-xs font-bold uppercase text-slate-400">
+                  <th class="py-3 px-2">Icono</th>
+                  <th class="py-3 px-2">Producto</th>
+                  <th class="py-3 px-2">Proveedor</th>
+                  <th class="py-3 px-2">Precio ($)</th>
+                  <th class="py-3 px-2 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="admin-products-table" class="divide-y divide-slate-100 text-sm">
+                <!-- Filas editables renderizadas por JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Registro Auditoría / Transacciones Recientes -->
+          <div class="pt-4 border-t border-slate-200">
+            <h4 class="font-extrabold text-slate-800 text-sm mb-3">Historial General de Movimientos (Caja y Proveedores)</h4>
+            <div id="admin-transactions-log" class="space-y-2 max-h-56 overflow-y-auto pr-1 text-xs">
+              <!-- Movimientos -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL ESCÁNER NFC INTERACTIVO (PARA RECARGAR O COBRAR)                -->
+  <!-- ===================================================================== -->
+  <div id="nfc-modal" class="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 text-center relative overflow-hidden">
+      <button onclick="closeNfcModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 font-bold">✕</button>
+      
+      <div id="nfc-modal-badge" class="inline-block px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-blue-100 text-primary mb-3">
+        Lector NFC Activo
+      </div>
+
+      <h3 id="nfc-modal-title" class="text-xl font-extrabold text-slate-900">Acerca el Sticker NFC</h3>
+      <p id="nfc-modal-desc" class="text-sm text-slate-500 mt-1 mb-6">Toca uno de los stickers simulados abajo o acerca una etiqueta NFC real a tu teléfono.</p>
+
+      <!-- Animación Radar NFC -->
+      <div class="relative w-28 h-28 mx-auto mb-6 flex items-center justify-center">
+        <div class="absolute inset-0 rounded-full bg-primary/20 nfc-ring"></div>
+        <div class="absolute inset-0 rounded-full bg-primary/20 nfc-ring-delay"></div>
+        <div id="nfc-center-icon" class="relative w-20 h-20 rounded-full bg-primary text-white flex items-center justify-center shadow-lg">
+          <svg class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" />
+          </svg>
+        </div>
+      </div>
+
+      <!-- Monto de la Operación -->
+      <div class="bg-slate-100 rounded-2xl p-3 mb-5">
+        <span class="text-xs font-semibold text-slate-500 block">Monto de la operación:</span>
+        <span id="nfc-modal-amount" class="text-2xl font-extrabold text-slate-900">$0.00</span>
+      </div>
+
+      <!-- Stickers Simulados para Clic Directo -->
+      <div class="text-left">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Simular lectura tocando un Sticker:</p>
+        <div id="nfc-modal-stickers-list" class="space-y-2">
+          <!-- Botones de stickers -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL RESULTADO DE OPERACIÓN NFC (ÉXITO O SALDO INSUFICIENTE)         -->
+  <!-- ===================================================================== -->
+  <div id="result-modal" class="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div id="result-modal-card" class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl text-center border-t-8 border-emerald-500">
+      <div id="result-icon-wrapper" class="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 mx-auto mb-4 flex items-center justify-center">
+        <!-- Icono éxito o error -->
+      </div>
+      <h3 id="result-title" class="text-2xl font-extrabold text-slate-900 mb-1">¡Operación Exitosa!</h3>
+      <p id="result-message" class="text-sm text-slate-600 mb-5">Saldo actualizado correctamente.</p>
+      
+      <div id="result-details" class="bg-slate-50 rounded-2xl p-4 mb-5 text-sm space-y-1.5 border border-slate-200/80">
+        <!-- Detalles del saldo -->
+      </div>
+
+      <button onclick="closeResultModal()" class="w-full py-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm transition">
+        Continuar
+      </button>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL CREAR NUEVO PRODUCTO (PROVEEDOR / ADMIN)                        -->
+  <!-- ===================================================================== -->
+  <div id="product-modal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-extrabold text-slate-900">Registrar Producto</h3>
+        <button onclick="closeQuickProductModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 font-bold">✕</button>
+      </div>
+      <form onsubmit="saveNewProduct(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Nombre del Producto</label>
+          <input type="text" id="new-prod-name" required placeholder="Ej. Perro Caliente Especial" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold focus:outline-none focus:ring-2 ring-primary" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">Precio en Dólares ($)</label>
+            <input type="number" step="0.01" min="0.10" id="new-prod-price" required placeholder="3.50" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-bold focus:outline-none focus:ring-2 ring-primary" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">Emoji / Icono</label>
+            <select id="new-prod-emoji" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm bg-white">
+              <option value="🍔">🍔 Hamburguesa</option>
+              <option value="🌭">🌭 Perro Caliente</option>
+              <option value="🍕">🍕 Pizza</option>
+              <option value="🥤">🥤 Refresco / Bebida</option>
+              <option value="🍺">🍺 Cerveza</option>
+              <option value="🍹">🍹 Cóctel</option>
+              <option value="☕">☕ Café</option>
+              <option value="🍩">🍩 Postre / Dulce</option>
+              <option value="🎟️">🎟️ Entrada / Ticket</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Proveedor Asignado</label>
+          <select id="new-prod-provider" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold bg-white">
+            <option value="Burger Station">🍔 Burger Station</option>
+            <option value="Bebidas & Cocteles">🍹 Bebidas & Cocteles</option>
+            <option value="Dulces & Café">🍩 Dulces & Café</option>
+          </select>
+        </div>
+        <button type="submit" class="w-full py-3.5 rounded-2xl bg-primary hover:bg-primary text-white font-extrabold text-sm shadow-lg transition">
+          Guardar Producto en Catálogo
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- DRAWER GESTIÓN DE STICKERS NFC DE PRUEBA                              -->
+  <!-- ===================================================================== -->
+  <div id="stickers-drawer" class="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-50 hidden justify-end">
+    <div class="bg-white w-full max-w-md h-full p-6 shadow-2xl flex flex-col justify-between overflow-y-auto">
+      <div>
+        <div class="flex items-center justify-between pb-4 border-b border-slate-200 mb-5">
+          <div>
+            <h3 class="text-lg font-extrabold text-slate-900">Billeteras / Stickers NFC</h3>
+            <p class="text-xs text-slate-500">Simulador de clientes con etiquetas NTAG215</p>
+          </div>
+          <button onclick="toggleStickersDrawer()" class="w-8 h-8 rounded-full bg-slate-100 font-bold text-slate-600">✕</button>
+        </div>
+
+        <div id="drawer-stickers-list" class="space-y-3 mb-6">
+          <!-- Tarjetas de stickers -->
+        </div>
+
+        <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+          <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-2">Registrar Nuevo Sticker NFC</h4>
+          <div class="flex gap-2">
+            <input type="text" id="new-sticker-owner" placeholder="Nombre del cliente (Ej. Luis)" class="flex-1 px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+            <button onclick="createNewSticker()" class="px-4 py-2 rounded-xl bg-slate-900 text-white font-bold text-xs">+ Crear</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-4 border-t border-slate-200 text-xs text-slate-400">
+        Nota técnica: En dispositivos Android con Google Chrome, esta app soporta lectura física mediante la API Web NFC (<code class="text-slate-600">NDEFReader</code>).
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // ESTADO GLOBAL DE LA APLICACIÓN (SIMULACIÓN DE BASE DE DATOS EN TIEMPO REAL)
+    // =========================================================================
+    const state = {
+      bcvRate: 52.40,
+      cajaCents: 0, // Monto ingresado en calculadora (en centavos para precisión)
+      nfcMode: null, // 'RECHARGE' | 'CHARGE'
+      
+      // Stickers NFC activos
+      stickers: [
+        { id: 'NFC-001', owner: 'Carlos Pérez', balance: 25.00, color: 'from-blue-600 to-indigo-700' },
+        { id: 'NFC-002', owner: 'María Gómez', balance: 5.00, color: 'from-emerald-600 to-teal-700' },
+        { id: 'NFC-003', owner: 'Andrés (Sin Saldo)', balance: 0.00, color: 'from-slate-700 to-slate-900' }
+      ],
+
+      // Catálogo de productos de proveedores
+      products: [
+        { id: 1, name: 'Hamburguesa Clásica', price: 6.50, emoji: '🍔', provider: 'Burger Station' },
+        { id: 2, name: 'Papas Fritas Grandes', price: 3.00, emoji: '🍟', provider: 'Burger Station' },
+        { id: 3, name: 'Perro Caliente Full', price: 2.50, emoji: '🌭', provider: 'Burger Station' },
+        { id: 4, name: 'Refresco Lata 355ml', price: 1.50, emoji: '🥤', provider: 'Bebidas & Cocteles' },
+        { id: 5, name: 'Cerveza Artesanal', price: 3.50, emoji: '🍺', provider: 'Bebidas & Cocteles' },
+        { id: 6, name: 'Mojito Clásico', price: 5.00, emoji: '🍹', provider: 'Bebidas & Cocteles' },
+        { id: 7, name: 'Café Latte / Mocca', price: 2.50, emoji: '☕', provider: 'Dulces & Café' },
+        { id: 8, name: 'Dona Glaseada', price: 2.00, emoji: '🍩', provider: 'Dulces & Café' }
+      ],
+
+      // Carrito activo en Proveedores
+      cart: [],
+
+      // Historial de transacciones y métricas
+      transactions: [
+        { id: 'TX-101', type: 'RECARGA', stickerId: 'NFC-001', owner: 'Carlos Pérez', usd: 25.00, bs: 1310.00, detail: 'Recarga inicial en Caja', time: '14:10' },
+        { id: 'TX-102', type: 'RECARGA', stickerId: 'NFC-002', owner: 'María Gómez', usd: 5.00, bs: 262.00, detail: 'Recarga inicial en Caja', time: '14:15' }
+      ]
+    };
+
+    // =========================================================================
+    // SINTETIZADOR DE SONIDOS (FEEDBACK POSITIVO / NEGATIVO SIN ARCHIVOS EXTERNOS)
+    // =========================================================================
+    function playTone(type) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (type === 'success') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+          osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12); // A5
+          gain.gain.setValueAtTime(0.15, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.35);
+        } else {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(180, ctx.currentTime);
+          osc.frequency.setValueAtTime(140, ctx.currentTime + 0.15);
+          gain.gain.setValueAtTime(0.15, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.4);
+        }
+      } catch (e) {
+        // Ignorar si el navegador bloquea audio sin interacción previa
+      }
+    }
+
+    // =========================================================================
+    // FORMATEADORES DE MONEDA
+    // =========================================================================
+    function formatUSD(val) {
+      return '$' + Number(val).toFixed(2);
+    }
+
+    function formatBs(val) {
+      return 'Bs. ' + Number(val).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // =========================================================================
+    // NAVEGACIÓN ENTRE MÓDULOS
+    // =========================================================================
+    function switchTab(tab) {
+      ['caja', 'proveedores', 'admin'].forEach(t => {
+        document.getElementById(`view-${t}`).classList.add('hidden');
+        const btn = document.getElementById(`tab-btn-${t}`);
+        btn.classList.remove('bg-white', 'text-slate-900', 'shadow');
+        btn.classList.add('text-white/85', 'hover:bg-white/10');
+      });
+
+      document.getElementById(`view-${tab}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`tab-btn-${tab}`);
+      activeBtn.classList.add('bg-white', 'text-slate-900', 'shadow');
+      activeBtn.classList.remove('text-white/85', 'hover:bg-white/10');
+
+      if (tab === 'proveedores') {
+        renderProviderCatalog();
+        renderCart();
+      } else if (tab === 'admin') {
+        renderAdminDashboard();
+      }
+    }
+
+    // =========================================================================
+    // MÓDULO 1: LÓGICA DE CAJA Y CALCULADORA BCV
+    // =========================================================================
+    function updateCajaDisplay() {
+      const usd = state.cajaCents / 100;
+      const bs = usd * state.bcvRate;
+      document.getElementById('caja-usd-display').value = usd.toFixed(2);
+      document.getElementById('caja-bs-display').textContent = formatBs(bs);
+    }
+
+    function pressCajaDigit(digit) {
+      const str = String(state.cajaCents) + digit;
+      if (str.length > 8) return; // Límite razonable
+      state.cajaCents = parseInt(str, 10);
+      updateCajaDisplay();
+    }
+
+    function backspaceCajaDigit() {
+      state.cajaCents = Math.floor(state.cajaCents / 10);
+      updateCajaDisplay();
+    }
+
+    function clearCajaInput() {
+      state.cajaCents = 0;
+      updateCajaDisplay();
+    }
+
+    function addQuickAmount(dollars) {
+      state.cajaCents += dollars * 100;
+      updateCajaDisplay();
+    }
+
+    function initiateNfcRecharge() {
+      const usd = state.cajaCents / 100;
+      if (usd <= 0) {
+        showResultModal(false, 'Monto Inválido', 'Por favor ingresa un monto mayor a $0.00 en la calculadora antes de cargar el NFC.');
+        return;
+      }
+      state.nfcMode = 'RECHARGE';
+      openNfcModal(
+        'Recarga de Saldo NFC',
+        'Acerca el sticker del cliente para acreditar el saldo en dólares.',
+        `${formatUSD(usd)} (${formatBs(usd * state.bcvRate)})`
+      );
+    }
+
+    // =========================================================================
+    // MÓDULO 2: PROVEEDORES (CATÁLOGO, CARRITO Y DESCUENTO NFC)
+    // =========================================================================
+    function renderProviderCatalog() {
+      const filter = document.getElementById('provider-filter').value;
+      const grid = document.getElementById('provider-products-grid');
+      const filtered = filter === 'ALL' ? state.products : state.products.filter(p => p.provider === filter);
+
+      document.getElementById('catalog-count').textContent = `${filtered.length} productos disponibles`;
+
+      grid.innerHTML = filtered.map(prod => `
+        <button onclick="addToCart(${prod.id})" class="bg-white hover:border-primary border border-slate-200/90 rounded-2xl p-4 text-left shadow-xs hover:shadow-md transition flex flex-col justify-between group active:scale-95">
+          <div>
+            <div class="w-12 h-12 rounded-2xl bg-slate-100 group-hover:bg-blue-50 flex items-center justify-center text-2xl mb-3 transition">
+              ${prod.emoji}
+            </div>
+            <h4 class="font-bold text-slate-800 text-sm leading-snug line-clamp-2">${prod.name}</h4>
+            <span class="text-[11px] text-slate-400 font-medium block mt-0.5">${prod.provider}</span>
+          </div>
+          <div class="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+            <span class="font-extrabold text-primary text-base">${formatUSD(prod.price)}</span>
+            <span class="w-6 h-6 rounded-lg bg-slate-100 group-hover:bg-primary group-hover:text-white text-slate-600 flex items-center justify-center font-bold text-sm transition">+</span>
+          </div>
+        </button>
+      `).join('');
+    }
+
+    function addToCart(productId) {
+      const prod = state.products.find(p => p.id === productId);
+      if (!prod) return;
+
+      const existing = state.cart.find(item => item.product.id === productId);
+      if (existing) {
+        existing.qty += 1;
+      } else {
+        state.cart.push({ product: prod, qty: 1 });
+      }
+      renderCart();
+    }
+
+    function updateCartQty(productId, delta) {
+      const idx = state.cart.findIndex(item => item.product.id === productId);
+      if (idx === -1) return;
+
+      state.cart[idx].qty += delta;
+      if (state.cart[idx].qty <= 0) {
+        state.cart.splice(idx, 1);
+      }
+      renderCart();
+    }
+
+    function clearCart() {
+      state.cart = [];
+      renderCart();
+    }
+
+    function getCartTotalUSD() {
+      return state.cart.reduce((sum, item) => sum + (item.product.price * item.qty), 0);
+    }
+
+    function renderCart() {
+      const container = document.getElementById('cart-items-container');
+      const totalItems = state.cart.reduce((sum, i) => sum + i.qty, 0);
+      const totalUSD = getCartTotalUSD();
+
+      document.getElementById('cart-items-badge').textContent = totalItems;
+      document.getElementById('cart-total-usd').textContent = formatUSD(totalUSD);
+      document.getElementById('cart-total-bs').textContent = formatBs(totalUSD * state.bcvRate);
+
+      if (state.cart.length === 0) {
+        container.innerHTML = `
+          <div class="h-40 flex flex-col items-center justify-center text-center text-slate-400">
+            <span class="text-3xl mb-2">🛒</span>
+            <p class="text-xs font-semibold">Selecciona productos del catálogo para armar el pedido</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = state.cart.map(item => `
+        <div class="flex items-center justify-between gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200/70">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="text-xl">${item.product.emoji}</span>
+            <div class="truncate">
+              <p class="font-bold text-slate-800 text-xs sm:text-sm truncate">${item.product.name}</p>
+              <p class="text-xs text-slate-500 font-semibold">${formatUSD(item.product.price)} c/u</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button onclick="updateCartQty(${item.product.id}, -1)" class="w-7 h-7 rounded-lg bg-white border border-slate-300 font-bold text-slate-700 hover:bg-slate-100">-</button>
+            <span class="w-5 text-center font-extrabold text-sm">${item.qty}</span>
+            <button onclick="updateCartQty(${item.product.id}, 1)" class="w-7 h-7 rounded-lg bg-white border border-slate-300 font-bold text-slate-700 hover:bg-slate-100">+</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function initiateNfcCharge() {
+      const totalUSD = getCartTotalUSD();
+      if (totalUSD <= 0) {
+        showResultModal(false, 'Carrito Vacío', 'Agrega al menos un producto antes de leer el sticker NFC del cliente.');
+        return;
+      }
+      state.nfcMode = 'CHARGE';
+      openNfcModal(
+        'Cobro con Sticker NFC',
+        'Acerca el sticker del cliente para verificar saldo y descontar el consumo.',
+        `${formatUSD(totalUSD)}`
+      );
+    }
+
+    // =========================================================================
+    // MOTOR NFC (LECTURA REAL WEB NFC + SIMULADOR INTERACTIVO DE STICKERS)
+    // =========================================================================
+    function openNfcModal(title, desc, amountLabel) {
+      document.getElementById('nfc-modal-title').textContent = title;
+      document.getElementById('nfc-modal-desc').textContent = desc;
+      document.getElementById('nfc-modal-amount').textContent = amountLabel;
+
+      const list = document.getElementById('nfc-modal-stickers-list');
+      list.innerHTML = state.stickers.map(st => `
+        <button onclick="processStickerTap('${st.id}')" class="w-full p-3 rounded-2xl border border-slate-200 hover:border-primary bg-slate-50 hover:bg-blue-50/60 flex items-center justify-between transition group active:scale-[0.99]">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-br ${st.color} text-white flex items-center justify-center font-extrabold text-xs shadow">
+              NFC
+            </div>
+            <div class="text-left">
+              <p class="font-bold text-slate-800 text-sm group-hover:text-primary">${st.owner}</p>
+              <p class="text-[11px] font-mono text-slate-400">ID: ${st.id}</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="block text-[10px] uppercase font-bold text-slate-400">Saldo Actual</span>
+            <span class="font-extrabold text-sm ${st.balance > 0 ? 'text-emerald-600' : 'text-rose-500'}">${formatUSD(st.balance)}</span>
+          </div>
+        </button>
+      `).join('');
+
+      const modal = document.getElementById('nfc-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+
+      // Intentar activar lector Web NFC físico si el navegador lo soporta (Android Chrome)
+      tryStartHardwareWebNfc();
+    }
+
+    function closeNfcModal() {
+      const modal = document.getElementById('nfc-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    async function tryStartHardwareWebNfc() {
+      if ('NDEFReader' in window) {
+        try {
+          const ndef = new NDEFReader();
+          await ndef.scan();
+          ndef.onreading = event => {
+            const serial = event.serialNumber || 'NFC-001';
+            // Si el sticker físico no existe en demo, lo vinculamos al primer sticker o creamos uno
+            let target = state.stickers.find(s => s.id === serial) || state.stickers[0];
+            processStickerTap(target.id);
+          };
+        } catch (err) {
+          // Si no hay permiso o es PC, el simulador táctil sigue funcionando perfectamente
+        }
+      }
+    }
+
+    function processStickerTap(stickerId) {
+      closeNfcModal();
+      const sticker = state.stickers.find(s => s.id === stickerId);
+      if (!sticker) return;
+
+      const now = new Date();
+      const timeStr = now.toTimeString().slice(0, 5);
+
+      if (state.nfcMode === 'RECHARGE') {
+        const usd = state.cajaCents / 100;
+        const bs = usd * state.bcvRate;
+
+        sticker.balance = Number((sticker.balance + usd).toFixed(2));
+        state.transactions.unshift({
+          id: 'TX-' + Math.floor(100 + Math.random() * 900),
+          type: 'RECARGA',
+          stickerId: sticker.id,
+          owner: sticker.owner,
+          usd: usd,
+          bs: bs,
+          detail: `Recarga en Caja (${formatBs(bs)})`,
+          time: timeStr
+        });
+
+        clearCajaInput();
+        refreshAllViews();
+        playTone('success');
+
+        showResultModal(
+          true,
+          '¡Saldo Cargado al NFC!',
+          `Se acreditaron ${formatUSD(usd)} a la etiqueta de ${sticker.owner}.`,
+          `
+            <div class="flex justify-between"><span class="text-slate-500">Sticker:</span><span class="font-bold">${sticker.id} (${sticker.owner})</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Recargado:</span><span class="font-bold text-primary">+${formatUSD(usd)}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Cobrado en Bs:</span><span class="font-bold text-amber-600">${formatBs(bs)}</span></div>
+            <div class="flex justify-between pt-2 border-t border-slate-200"><span class="text-slate-700 font-bold">Nuevo Saldo NFC:</span><span class="font-extrabold text-emerald-600 text-base">${formatUSD(sticker.balance)}</span></div>
+          `
+        );
+
+      } else if (state.nfcMode === 'CHARGE') {
+        const totalUSD = Number(getCartTotalUSD().toFixed(2));
+
+        // VALIDACIÓN DE SALDO SUFICIENTE
+        if (sticker.balance < totalUSD) {
+          const missing = totalUSD - sticker.balance;
+          playTone('error');
+          showResultModal(
+            false,
+            'Saldo Insuficiente',
+            `El sticker de ${sticker.owner} no tiene fondos suficientes para completar esta compra.`,
+            `
+              <div class="flex justify-between"><span class="text-slate-500">Sticker:</span><span class="font-bold">${sticker.id} (${sticker.owner})</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">Saldo Disponible:</span><span class="font-bold text-rose-600">${formatUSD(sticker.balance)}</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">Total Compra:</span><span class="font-bold text-slate-900">${formatUSD(totalUSD)}</span></div>
+              <div class="flex justify-between pt-2 border-t border-slate-200"><span class="text-rose-700 font-bold">Faltante:</span><span class="font-extrabold text-rose-600">${formatUSD(missing)}</span></div>
+            `
+          );
+          return;
+        }
+
+        // PROCESAR DESCUENTO
+        sticker.balance = Number((sticker.balance - totalUSD).toFixed(2));
+        const summaryItems = state.cart.map(i => `${i.qty}x ${i.product.name}`).join(', ');
+
+        state.transactions.unshift({
+          id: 'TX-' + Math.floor(100 + Math.random() * 900),
+          type: 'CONSUMO',
+          stickerId: sticker.id,
+          owner: sticker.owner,
+          usd: totalUSD,
+          bs: totalUSD * state.bcvRate,
+          detail: summaryItems,
+          time: timeStr
+        });
+
+        clearCart();
+        refreshAllViews();
+        playTone('success');
+
+        showResultModal(
+          true,
+          '¡Pago Aprobado!',
+          `Descuento procesado exitosamente en el sticker de ${sticker.owner}.`,
+          `
+            <div class="flex justify-between"><span class="text-slate-500">Cliente:</span><span class="font-bold">${sticker.owner} (${sticker.id})</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Monto Descontado:</span><span class="font-bold text-rose-600">-${formatUSD(totalUSD)}</span></div>
+            <div class="flex justify-between pt-2 border-t border-slate-200"><span class="text-slate-700 font-bold">Saldo Restante:</span><span class="font-extrabold text-emerald-600 text-base">${formatUSD(sticker.balance)}</span></div>
+          `
+        );
+      }
+    }
+
+    function showResultModal(isSuccess, title, message, detailsHtml = '') {
+      const card = document.getElementById('result-modal-card');
+      const iconWrap = document.getElementById('result-icon-wrapper');
+      const detailsEl = document.getElementById('result-details');
+
+      card.className = `bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl text-center border-t-8 ${isSuccess ? 'border-emerald-500' : 'border-rose-500'}`;
+      iconWrap.className = `w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center ${isSuccess ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`;
+      iconWrap.innerHTML = isSuccess
+        ? `<svg class="w-9 h-9" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>`
+        : `<svg class="w-9 h-9" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>`;
+
+      document.getElementById('result-title').textContent = title;
+      document.getElementById('result-message').textContent = message;
+
+      if (detailsHtml) {
+        detailsEl.innerHTML = detailsHtml;
+        detailsEl.classList.remove('hidden');
+      } else {
+        detailsEl.classList.add('hidden');
+      }
+
+      const modal = document.getElementById('result-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeResultModal() {
+      const modal = document.getElementById('result-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    // =========================================================================
+    // MÓDULO 3: ADMINISTRADOR (MÉTRICAS, CRUD PRODUCTOS, TASA BCV Y COLORES)
+    // =========================================================================
+    function renderAdminDashboard() {
+      const totalRecargadoUSD = state.transactions
+        .filter(t => t.type === 'RECARGA')
+        .reduce((sum, t) => sum + t.usd, 0);
+
+      const totalRecargadoBs = state.transactions
+        .filter(t => t.type === 'RECARGA')
+        .reduce((sum, t) => sum + t.bs, 0);
+
+      const totalConsumidoUSD = state.transactions
+        .filter(t => t.type === 'CONSUMO')
+        .reduce((sum, t) => sum + t.usd, 0);
+
+      const saldoFlotanteUSD = state.stickers.reduce((sum, s) => sum + s.balance, 0);
+
+      document.getElementById('admin-kpi-caja-usd').textContent = formatUSD(totalRecargadoUSD);
+      document.getElementById('admin-kpi-caja-bs').textContent = formatBs(totalRecargadoBs);
+      document.getElementById('admin-kpi-spent-usd').textContent = formatUSD(totalConsumidoUSD);
+      document.getElementById('admin-kpi-floating-usd').textContent = formatUSD(saldoFlotanteUSD);
+
+      // Renderizar tabla editable de productos
+      const tbody = document.getElementById('admin-products-table');
+      tbody.innerHTML = state.products.map(p => `
+        <tr class="hover:bg-slate-50">
+          <td class="py-2.5 px-2 text-xl">${p.emoji}</td>
+          <td class="py-2.5 px-2">
+            <input type="text" value="${p.name}" onchange="editProductField(${p.id}, 'name', this.value)" class="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent focus:border-slate-300 rounded-lg px-2 py-1 font-bold text-slate-800" />
+          </td>
+          <td class="py-2.5 px-2 text-xs text-slate-500 font-medium">${p.provider}</td>
+          <td class="py-2.5 px-2">
+            <div class="flex items-center gap-1">
+              <span class="text-slate-400 font-bold">$</span>
+              <input type="number" step="0.10" value="${p.price.toFixed(2)}" onchange="editProductField(${p.id}, 'price', parseFloat(this.value))" class="w-20 bg-slate-100 focus:bg-white border border-slate-200 rounded-lg px-2 py-1 font-extrabold text-slate-900" />
+            </div>
+          </td>
+          <td class="py-2.5 px-2 text-right">
+            <button onclick="deleteProduct(${p.id})" class="text-rose-500 hover:text-rose-700 font-bold text-xs px-2 py-1 rounded hover:bg-rose-50">Eliminar</button>
+          </td>
+        </tr>
+      `).join('');
+
+      // Renderizar historial general
+      const logEl = document.getElementById('admin-transactions-log');
+      logEl.innerHTML = state.transactions.map(tx => `
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200/70">
+          <div>
+            <span class="px-2 py-0.5 rounded text-[10px] font-extrabold ${tx.type === 'RECARGA' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}">${tx.type}</span>
+            <span class="font-bold text-slate-800 ml-1.5">${tx.owner}</span>
+            <p class="text-slate-500 mt-0.5">${tx.detail}</p>
+          </div>
+          <div class="text-right">
+            <span class="font-extrabold block ${tx.type === 'RECARGA' ? 'text-primary' : 'text-rose-600'}">
+              ${tx.type === 'RECARGA' ? '+' : '-'}${formatUSD(tx.usd)}
+            </span>
+            <span class="text-[10px] text-slate-400">${tx.time}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function editProductField(id, field, value) {
+      const prod = state.products.find(p => p.id === id);
+      if (!prod) return;
+      if (field === 'price' && (isNaN(value) || value <= 0)) return;
+      prod[field] = value;
+      renderProviderCatalog();
+    }
+
+    function deleteProduct(id) {
+      state.products = state.products.filter(p => p.id !== id);
+      renderAdminDashboard();
+      renderProviderCatalog();
+    }
+
+    function updateBcvRate() {
+      const val = parseFloat(document.getElementById('admin-bcv-input').value);
+      if (isNaN(val) || val <= 0) return;
+      state.bcvRate = val;
+
+      const formatted = 'Bs. ' + val.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      document.getElementById('header-bcv-rate').textContent = formatted;
+      document.getElementById('caja-rate-badge').textContent = val.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      updateCajaDisplay();
+      renderCart();
+      playTone('success');
+    }
+
+    // Personalización White-Label en tiempo real
+    function applyThemeLive() {
+      const name = document.getElementById('theme-name-input').value || 'PaySticker NFC';
+      const subtitle = document.getElementById('theme-subtitle-input').value || 'Sistema Cashless & Tasa BCV';
+      const primary = document.getElementById('theme-primary-color').value;
+      const secondary = document.getElementById('theme-secondary-color').value;
+      const bg = document.getElementById('theme-bg-color').value;
+
+      document.getElementById('header-app-name').textContent = name;
+      document.getElementById('header-app-subtitle').textContent = subtitle;
+
+      document.documentElement.style.setProperty('--color-primary', primary);
+      document.documentElement.style.setProperty('--color-primary-hover', primary);
+      document.documentElement.style.setProperty('--color-secondary', secondary);
+      document.documentElement.style.setProperty('--color-bg', bg);
+    }
+
+    function setPresetTheme(primary, secondary, bg) {
+      document.getElementById('theme-primary-color').value = primary;
+      document.getElementById('theme-secondary-color').value = secondary;
+      document.getElementById('theme-bg-color').value = bg;
+      applyThemeLive();
+    }
+
+    function resetTheme() {
+      document.getElementById('theme-name-input').value = 'PaySticker NFC';
+      document.getElementById('theme-subtitle-input').value = 'Sistema Cashless & Tasa BCV';
+      setPresetTheme('#2563eb', '#10b981', '#f1f5f9');
+    }
+
+    // =========================================================================
+    // MODALES AUXILIARES Y GESTIÓN DE STICKERS
+    // =========================================================================
+    function openQuickProductModal() {
+      const m = document.getElementById('product-modal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    }
+
+    function closeQuickProductModal() {
+      const m = document.getElementById('product-modal');
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+    }
+
+    function saveNewProduct(e) {
+      e.preventDefault();
+      const name = document.getElementById('new-prod-name').value.trim();
+      const price = parseFloat(document.getElementById('new-prod-price').value);
+      const emoji = document.getElementById('new-prod-emoji').value;
+      const provider = document.getElementById('new-prod-provider').value;
+
+      if (!name || isNaN(price) || price <= 0) return;
+
+      state.products.unshift({
+        id: Date.now(),
+        name,
+        price,
+        emoji,
+        provider
+      });
+
+      document.getElementById('new-prod-name').value = '';
+      document.getElementById('new-prod-price').value = '';
+      closeQuickProductModal();
+      renderProviderCatalog();
+      renderAdminDashboard();
+      playTone('success');
+    }
+
+    function toggleStickersDrawer() {
+      const drawer = document.getElementById('stickers-drawer');
+      if (drawer.classList.contains('hidden')) {
+        drawer.classList.remove('hidden');
+        drawer.classList.add('flex');
+        renderStickersUI();
+      } else {
+        drawer.classList.add('hidden');
+        drawer.classList.remove('flex');
+      }
+    }
+
+    function createNewSticker() {
+      const input = document.getElementById('new-sticker-owner');
+      const owner = input.value.trim();
+      if (!owner) return;
+
+      const nextNum = String(state.stickers.length + 1).padStart(3, '0');
+      state.stickers.push({
+        id: `NFC-${nextNum}`,
+        owner,
+        balance: 0.00,
+        color: 'from-violet-600 to-purple-800'
+      });
+
+      input.value = '';
+      refreshAllViews();
+    }
+
+    function renderStickersUI() {
+      document.getElementById('active-stickers-count').textContent = state.stickers.length;
+
+      // Barra superior rápida
+      const quickBar = document.getElementById('quick-stickers-bar');
+      quickBar.innerHTML = state.stickers.map(s => `
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[11px] whitespace-nowrap">
+          <span class="font-bold text-slate-300">${s.owner.split(' ')[0]}:</span>
+          <span class="font-extrabold ${s.balance > 0 ? 'text-emerald-400' : 'text-rose-400'}">${formatUSD(s.balance)}</span>
+        </span>
+      `).join('');
+
+      // Drawer lateral
+      const drawerList = document.getElementById('drawer-stickers-list');
+      drawerList.innerHTML = state.stickers.map(s => `
+        <div class="p-4 rounded-2xl bg-gradient-to-r ${s.color} text-white shadow-md flex items-center justify-between">
+          <div>
+            <span class="text-[10px] font-mono uppercase tracking-widest text-white/75">${s.id} • NTAG215</span>
+            <h4 class="font-extrabold text-base">${s.owner}</h4>
+          </div>
+          <div class="text-right">
+            <span class="text-[10px] uppercase text-white/75 block">Saldo</span>
+            <span class="text-2xl font-extrabold">${formatUSD(s.balance)}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderCajaHistory() {
+      const list = document.getElementById('caja-history-list');
+      const recharges = state.transactions.filter(t => t.type === 'RECARGA');
+
+      list.innerHTML = recharges.map(r => `
+        <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-slate-800 text-sm">${r.owner}</span>
+              <span class="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-200 text-slate-600">${r.stickerId}</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">${formatBs(r.bs)} • ${r.time}</p>
+          </div>
+          <span class="font-extrabold text-emerald-600 text-base">+${formatUSD(r.usd)}</span>
+        </div>
+      `).join('');
+    }
+
+    function refreshAllViews() {
+      renderStickersUI();
+      renderCajaHistory();
+      renderProviderCatalog();
+      renderCart();
+      renderAdminDashboard();
+    }
+
+    // Inicialización al cargar
+    window.addEventListener('DOMContentLoaded', () => {
+      updateCajaDisplay();
+      refreshAllViews();
+    });
+  </script>
+</body>
+</html>

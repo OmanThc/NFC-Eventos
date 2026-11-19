@@ -1,0 +1,6 @@
+{
+  "name": "PaySticker NFC - Cashless & Tasa BCV",
+  "description": "Sistema Cashless integral para eventos con recarga NFC en Caja a tasa oficial BCV, catálogo y cobro en Stands de Proveedores, y panel administrativo de finanzas y personalización.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

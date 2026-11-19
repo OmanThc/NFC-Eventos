@@ -1,0 +1,6 @@
+{
+  "firestore": {
+    "database": "ai-studio-nfceventos-d7a35d88-d4eb-48c7-9227-389296129c6f",
+    "rules": "firestore.rules"
+  }
+}

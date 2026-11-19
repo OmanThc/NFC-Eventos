@@ -1,0 +1,629 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // Global Hardened Primitives
+    // =========================================================================
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'andresomana3@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isVerifiedUser() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidPin(pin) {
+      return pin is string && pin.size() >= 4 && pin.size() <= 8 && pin.matches('^[0-9]+$');
+    }
+
+    function isValidHexColor(color) {
+      return color is string && color.size() >= 4 && color.size() <= 20 && color.matches('^#[0-9a-fA-F]{3,8}$');
+    }
+
+    function isCompanyOwner(companyId) {
+      return isVerifiedUser() &&
+        exists(/databases/$(database)/documents/companies/$(companyId)) &&
+        get(/databases/$(database)/documents/companies/$(companyId)).data.ownerUid == request.auth.uid;
+    }
+
+    // =========================================================================
+    // Entity Validation Blueprints
+    // =========================================================================
+
+    function isValidPlatformConfig(data) {
+      return data.keys().hasAll([
+          'ownerUid',
+          'masterPin',
+          'homeTitle',
+          'homeSubtitle',
+          'homeHeroDescription',
+          'homeBannerText',
+          'allowPublicCompanyRegistration',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerUid',
+          'masterPin',
+          'homeTitle',
+          'homeSubtitle',
+          'homeHeroDescription',
+          'homeBannerText',
+          'allowPublicCompanyRegistration',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128 &&
+        isValidPin(data.masterPin) &&
+        data.homeTitle is string && data.homeTitle.size() >= 1 && data.homeTitle.size() <= 200 &&
+        data.homeSubtitle is string && data.homeSubtitle.size() >= 1 && data.homeSubtitle.size() <= 200 &&
+        data.homeHeroDescription is string && data.homeHeroDescription.size() >= 1 && data.homeHeroDescription.size() <= 600 &&
+        data.homeBannerText is string && data.homeBannerText.size() >= 1 && data.homeBannerText.size() <= 200 &&
+        data.allowPublicCompanyRegistration is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidPlatformPublic(data) {
+      return data.keys().hasAll([
+          'ownerUid',
+          'homeTitle',
+          'homeSubtitle',
+          'homeHeroDescription',
+          'homeBannerText',
+          'allowPublicCompanyRegistration',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerUid',
+          'homeTitle',
+          'homeSubtitle',
+          'homeHeroDescription',
+          'homeBannerText',
+          'allowPublicCompanyRegistration',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128 &&
+        data.homeTitle is string && data.homeTitle.size() >= 1 && data.homeTitle.size() <= 200 &&
+        data.homeSubtitle is string && data.homeSubtitle.size() >= 1 && data.homeSubtitle.size() <= 200 &&
+        data.homeHeroDescription is string && data.homeHeroDescription.size() >= 1 && data.homeHeroDescription.size() <= 600 &&
+        data.homeBannerText is string && data.homeBannerText.size() >= 1 && data.homeBannerText.size() <= 200 &&
+        data.allowPublicCompanyRegistration is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidCompany(data) {
+      return data.keys().hasAll([
+          'id',
+          'ownerUid',
+          'name',
+          'slug',
+          'logoEmoji',
+          'adminPin',
+          'cajaPin',
+          'appName',
+          'subtitle',
+          'bcvRate',
+          'eventCommissionRate',
+          'primaryColor',
+          'secondaryColor',
+          'bgColor',
+          'enableSound',
+          'enableVibration',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id',
+          'ownerUid',
+          'name',
+          'slug',
+          'description',
+          'logoEmoji',
+          'adminPin',
+          'cajaPin',
+          'appName',
+          'subtitle',
+          'bcvRate',
+          'eventCommissionRate',
+          'primaryColor',
+          'primaryHoverColor',
+          'secondaryColor',
+          'bgColor',
+          'enableSound',
+          'enableVibration',
+          'status',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128 &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+        data.slug is string && data.slug.size() >= 1 && data.slug.size() <= 120 &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
+        data.logoEmoji is string && data.logoEmoji.size() >= 1 && data.logoEmoji.size() <= 24 &&
+        isValidPin(data.adminPin) &&
+        isValidPin(data.cajaPin) &&
+        data.appName is string && data.appName.size() >= 1 && data.appName.size() <= 120 &&
+        data.subtitle is string && data.subtitle.size() >= 1 && data.subtitle.size() <= 160 &&
+        (data.bcvRate is int || data.bcvRate is float) && data.bcvRate > 0 && data.bcvRate <= 1000000 &&
+        (data.eventCommissionRate is int || data.eventCommissionRate is float) && data.eventCommissionRate >= 0 && data.eventCommissionRate <= 100 &&
+        isValidHexColor(data.primaryColor) &&
+        (!('primaryHoverColor' in data) || isValidHexColor(data.primaryHoverColor)) &&
+        isValidHexColor(data.secondaryColor) &&
+        isValidHexColor(data.bgColor) &&
+        data.enableSound is bool &&
+        data.enableVibration is bool &&
+        (!('status' in data) || (data.status is string && data.status in ['active', 'suspended'])) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidProviderAccount(data, companyId) {
+      return data.keys().hasAll([
+          'id',
+          'companyId',
+          'ownerUid',
+          'brandName',
+          'emoji',
+          'pin',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id',
+          'companyId',
+          'ownerUid',
+          'brandName',
+          'emoji',
+          'pin',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        data.companyId == companyId &&
+        data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128 &&
+        data.brandName is string && data.brandName.size() >= 1 && data.brandName.size() <= 100 &&
+        data.emoji is string && data.emoji.size() >= 1 && data.emoji.size() <= 24 &&
+        isValidPin(data.pin) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidSticker(data, companyId) {
+      return data.keys().hasAll([
+          'id',
+          'companyId',
+          'ownerUid',
+          'owner',
+          'balance',
+          'color',
+          'tagType',
+          'status',
+          'totalRecharged',
+          'totalSpent',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id',
+          'companyId',
+          'ownerUid',
+          'owner',
+          'balance',
+          'color',
+          'tagType',
+          'status',
+          'totalRecharged',
+          'totalSpent',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        data.companyId == companyId &&
+        data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128 &&
+        data.owner is string && data.owner.size() >= 1 && data.owner.size() <= 100 &&
+        (data.balance is int || data.balance is float) && data.balance >= 0 && data.balance <= 1000000 &&
+        data.color is string && data.color.size() >= 1 && data.color.size() <= 80 &&
+        data.tagType is string && data.tagType in ['NTAG215', 'NTAG213', 'MIFARE Ultralight', 'Virtual'] &&
+        data.status is string && data.status in ['active', 'blocked'] &&
+        (data.totalRecharged is int || data.totalRecharged is float) && data.totalRecharged >= 0 && data.totalRecharged <= 10000000 &&
+        (data.totalSpent is int || data.totalSpent is float) && data.totalSpent >= 0 && data.totalSpent <= 10000000 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidProduct(data, companyId) {
+      return data.keys().hasAll([
+          'id',
+          'companyId',
+          'ownerUid',
+          'name',
+          'price',
+          'emoji',
+          'provider',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id',
+          'companyId',
+          'ownerUid',
+          'name',
+          'price',
+          'emoji',
+          'provider',
+          'category',
+          'stock',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        data.companyId == companyId &&
+        data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128 &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+        (data.price is int || data.price is float) && data.price > 0 && data.price <= 100000 &&
+        data.emoji is string && data.emoji.size() >= 1 && data.emoji.size() <= 24 &&
+        data.provider is string && data.provider.size() >= 1 && data.provider.size() <= 100 &&
+        (!('category' in data) || (data.category is string && data.category.size() <= 60)) &&
+        (!('stock' in data) || (data.stock is int && data.stock >= 0 && data.stock <= 1000000)) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidTransaction(data, companyId) {
+      return data.keys().hasAll([
+          'id',
+          'companyId',
+          'ownerUid',
+          'type',
+          'stickerId',
+          'owner',
+          'usd',
+          'bs',
+          'bcvRate',
+          'detail',
+          'time',
+          'timestamp',
+          'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id',
+          'companyId',
+          'ownerUid',
+          'type',
+          'stickerId',
+          'owner',
+          'usd',
+          'bs',
+          'bcvRate',
+          'detail',
+          'provider',
+          'paymentMethod',
+          'time',
+          'timestamp',
+          'cartSnapshot',
+          'createdAt'
+        ]) &&
+        isValidId(data.id) &&
+        data.companyId == companyId &&
+        data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128 &&
+        data.type is string && data.type in ['RECARGA', 'CONSUMO', 'REEMBOLSO'] &&
+        isValidId(data.stickerId) &&
+        data.owner is string && data.owner.size() >= 1 && data.owner.size() <= 100 &&
+        (data.usd is int || data.usd is float) && data.usd >= 0 && data.usd <= 1000000 &&
+        (data.bs is int || data.bs is float) && data.bs >= 0 && data.bs <= 1000000000 &&
+        (data.bcvRate is int || data.bcvRate is float) && data.bcvRate > 0 && data.bcvRate <= 1000000 &&
+        data.detail is string && data.detail.size() >= 1 && data.detail.size() <= 500 &&
+        (!('provider' in data) || (data.provider is string && data.provider.size() <= 100)) &&
+        (!('paymentMethod' in data) || (data.paymentMethod is string && data.paymentMethod.size() <= 60)) &&
+        data.time is string && data.time.size() >= 1 && data.time.size() <= 40 &&
+        (data.timestamp is int || data.timestamp is float) && data.timestamp > 0 &&
+        (!('cartSnapshot' in data) || (
+          data.cartSnapshot is list &&
+          data.cartSnapshot.size() <= 50 &&
+          (data.cartSnapshot.size() == 0 || data.cartSnapshot[0] is map)
+        )) &&
+        data.createdAt is timestamp;
+    }
+
+    // =========================================================================
+    // Collection Rules
+    // =========================================================================
+
+    match /admins/{adminId} {
+      allow get: if isVerifiedUser() && isValidId(adminId) && (request.auth.uid == adminId || isBootstrappedAdmin());
+      allow list: if false;
+      allow create, update, delete: if isBootstrappedAdmin() && isValidId(adminId);
+    }
+
+    match /platform/{configId} {
+      allow get: if isValidId(configId) && isAdmin();
+      allow list: if isBootstrappedAdmin();
+      allow create: if isVerifiedUser() &&
+        isValidId(configId) &&
+        isValidPlatformConfig(incoming()) &&
+        incoming().ownerUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+      allow update: if isVerifiedUser() &&
+        isValidId(configId) &&
+        isValidPlatformConfig(incoming()) &&
+        isAdmin() &&
+        incoming().ownerUid == existing().ownerUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'masterPin',
+          'homeTitle',
+          'homeSubtitle',
+          'homeHeroDescription',
+          'homeBannerText',
+          'allowPublicCompanyRegistration',
+          'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /platform_public/{configId} {
+      allow get: if isValidId(configId) && isVerifiedUser();
+      allow list: if isBootstrappedAdmin();
+      allow create: if isVerifiedUser() &&
+        isValidId(configId) &&
+        isValidPlatformPublic(incoming()) &&
+        incoming().ownerUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+      allow update: if isVerifiedUser() &&
+        isValidId(configId) &&
+        isValidPlatformPublic(incoming()) &&
+        isAdmin() &&
+        incoming().ownerUid == existing().ownerUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'homeTitle',
+          'homeSubtitle',
+          'homeHeroDescription',
+          'homeBannerText',
+          'allowPublicCompanyRegistration',
+          'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /companies/{companyId} {
+      allow get: if isValidId(companyId) && isVerifiedUser() && (existing().ownerUid == request.auth.uid || isAdmin());
+      allow list: if isVerifiedUser() && (existing().ownerUid == request.auth.uid || isBootstrappedAdmin());
+
+      allow create: if isVerifiedUser() &&
+        isValidId(companyId) &&
+        isValidCompany(incoming()) &&
+        incoming().id == companyId &&
+        incoming().ownerUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser() &&
+        isValidId(companyId) &&
+        isValidCompany(incoming()) &&
+        (existing().ownerUid == request.auth.uid || isAdmin()) &&
+        incoming().id == existing().id &&
+        incoming().ownerUid == existing().ownerUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          (existing().ownerUid == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly([
+            'name',
+            'slug',
+            'description',
+            'logoEmoji',
+            'adminPin',
+            'cajaPin',
+            'appName',
+            'subtitle',
+            'bcvRate',
+            'eventCommissionRate',
+            'primaryColor',
+            'primaryHoverColor',
+            'secondaryColor',
+            'bgColor',
+            'enableSound',
+            'enableVibration',
+            'updatedAt'
+          ])) ||
+          (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly([
+            'name',
+            'slug',
+            'description',
+            'logoEmoji',
+            'adminPin',
+            'cajaPin',
+            'appName',
+            'subtitle',
+            'bcvRate',
+            'eventCommissionRate',
+            'primaryColor',
+            'primaryHoverColor',
+            'secondaryColor',
+            'bgColor',
+            'enableSound',
+            'enableVibration',
+            'status',
+            'updatedAt'
+          ]))
+        );
+
+      allow delete: if isValidId(companyId) && isVerifiedUser() && (existing().ownerUid == request.auth.uid || isAdmin());
+
+      // Subcollection: Providers
+      match /providers/{providerId} {
+        allow get: if isValidId(companyId) && isValidId(providerId) && isVerifiedUser() && (
+          (existing().ownerUid == request.auth.uid && isCompanyOwner(companyId)) ||
+          isAdmin()
+        );
+        allow list: if isVerifiedUser() && (existing().ownerUid == request.auth.uid || isBootstrappedAdmin());
+
+        allow create: if isVerifiedUser() &&
+          isValidId(companyId) &&
+          isValidId(providerId) &&
+          isValidProviderAccount(incoming(), companyId) &&
+          incoming().id == providerId &&
+          incoming().ownerUid == request.auth.uid &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          (isCompanyOwner(companyId) || isAdmin());
+
+        allow update: if isVerifiedUser() &&
+          isValidId(companyId) &&
+          isValidId(providerId) &&
+          isValidProviderAccount(incoming(), companyId) &&
+          (isCompanyOwner(companyId) || isAdmin()) &&
+          incoming().id == existing().id &&
+          incoming().companyId == existing().companyId &&
+          incoming().ownerUid == existing().ownerUid &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['brandName', 'emoji', 'pin', 'updatedAt']);
+
+        allow delete: if isValidId(companyId) && isValidId(providerId) && isVerifiedUser() && (isCompanyOwner(companyId) || isAdmin());
+      }
+
+      // Subcollection: Stickers
+      match /stickers/{stickerId} {
+        allow get: if isValidId(companyId) && isValidId(stickerId) && isVerifiedUser() && (
+          (existing().ownerUid == request.auth.uid && isCompanyOwner(companyId)) ||
+          isAdmin()
+        );
+        allow list: if isVerifiedUser() && (existing().ownerUid == request.auth.uid || isBootstrappedAdmin());
+
+        allow create: if isVerifiedUser() &&
+          isValidId(companyId) &&
+          isValidId(stickerId) &&
+          isValidSticker(incoming(), companyId) &&
+          incoming().id == stickerId &&
+          incoming().ownerUid == request.auth.uid &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          (isCompanyOwner(companyId) || isAdmin());
+
+        allow update: if isVerifiedUser() &&
+          isValidId(companyId) &&
+          isValidId(stickerId) &&
+          isValidSticker(incoming(), companyId) &&
+          (isCompanyOwner(companyId) || isAdmin()) &&
+          incoming().id == existing().id &&
+          incoming().companyId == existing().companyId &&
+          incoming().ownerUid == existing().ownerUid &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            (existing().status != 'blocked' && incoming().diff(existing()).affectedKeys().hasOnly([
+              'owner',
+              'balance',
+              'color',
+              'status',
+              'totalRecharged',
+              'totalSpent',
+              'updatedAt'
+            ])) ||
+            (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'owner', 'color', 'updatedAt'])) ||
+            isAdmin()
+          );
+
+        allow delete: if isValidId(companyId) && isValidId(stickerId) && isVerifiedUser() && (isCompanyOwner(companyId) || isAdmin());
+      }
+
+      // Subcollection: Products
+      match /products/{productId} {
+        allow get: if isValidId(companyId) && isValidId(productId) && isVerifiedUser() && (
+          (existing().ownerUid == request.auth.uid && isCompanyOwner(companyId)) ||
+          isAdmin()
+        );
+        allow list: if isVerifiedUser() && (existing().ownerUid == request.auth.uid || isBootstrappedAdmin());
+
+        allow create: if isVerifiedUser() &&
+          isValidId(companyId) &&
+          isValidId(productId) &&
+          isValidProduct(incoming(), companyId) &&
+          incoming().id == productId &&
+          incoming().ownerUid == request.auth.uid &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          (isCompanyOwner(companyId) || isAdmin());
+
+        allow update: if isVerifiedUser() &&
+          isValidId(companyId) &&
+          isValidId(productId) &&
+          isValidProduct(incoming(), companyId) &&
+          (isCompanyOwner(companyId) || isAdmin()) &&
+          incoming().id == existing().id &&
+          incoming().companyId == existing().companyId &&
+          incoming().ownerUid == existing().ownerUid &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'price', 'emoji', 'provider', 'category', 'stock', 'updatedAt']);
+
+        allow delete: if isValidId(companyId) && isValidId(productId) && isVerifiedUser() && (isCompanyOwner(companyId) || isAdmin());
+      }
+
+      // Subcollection: Transactions (append-only financial ledger for tenants)
+      match /transactions/{transactionId} {
+        allow get: if isValidId(companyId) && isValidId(transactionId) && isVerifiedUser() && (
+          (existing().ownerUid == request.auth.uid && isCompanyOwner(companyId)) ||
+          isAdmin()
+        );
+        allow list: if isVerifiedUser() && (existing().ownerUid == request.auth.uid || isBootstrappedAdmin());
+
+        allow create: if isVerifiedUser() &&
+          isValidId(companyId) &&
+          isValidId(transactionId) &&
+          isValidTransaction(incoming(), companyId) &&
+          incoming().id == transactionId &&
+          incoming().ownerUid == request.auth.uid &&
+          incoming().createdAt == request.time &&
+          (isCompanyOwner(companyId) || isAdmin()) &&
+          existsAfter(/databases/$(database)/documents/companies/$(companyId)/stickers/$(incoming().stickerId));
+
+        allow update: if false;
+        allow delete: if isValidId(companyId) && isValidId(transactionId) && isAdmin();
+      }
+    }
+  }
+}

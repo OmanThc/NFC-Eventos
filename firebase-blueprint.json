@@ -1,0 +1,239 @@
+{
+  "entities": {
+    "PlatformConfig": {
+      "title": "PlatformConfig",
+      "description": "Global platform texts and configuration managed by the Super Admin.",
+      "type": "object",
+      "properties": {
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "masterPin": { "type": "string", "minLength": 4, "maxLength": 8, "pattern": "^[0-9]+$" },
+        "homeTitle": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "homeSubtitle": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "homeHeroDescription": { "type": "string", "minLength": 1, "maxLength": 600 },
+        "homeBannerText": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "allowPublicCompanyRegistration": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "ownerUid",
+        "masterPin",
+        "homeTitle",
+        "homeSubtitle",
+        "homeHeroDescription",
+        "homeBannerText",
+        "allowPublicCompanyRegistration",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PlatformPublic": {
+      "title": "PlatformPublic",
+      "description": "Publicly readable home screen texts managed by the Super Admin (no secrets).",
+      "type": "object",
+      "properties": {
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "homeTitle": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "homeSubtitle": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "homeHeroDescription": { "type": "string", "minLength": 1, "maxLength": 600 },
+        "homeBannerText": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "allowPublicCompanyRegistration": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "ownerUid",
+        "homeTitle",
+        "homeSubtitle",
+        "homeHeroDescription",
+        "homeBannerText",
+        "allowPublicCompanyRegistration",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Company": {
+      "title": "Company",
+      "description": "Independent tenant company or event with isolated Caja, Proveedores, and Admin PINs.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "slug": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 500 },
+        "logoEmoji": { "type": "string", "minLength": 1, "maxLength": 16 },
+        "adminPin": { "type": "string", "minLength": 4, "maxLength": 8, "pattern": "^[0-9]+$" },
+        "cajaPin": { "type": "string", "minLength": 4, "maxLength": 8, "pattern": "^[0-9]+$" },
+        "appName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "subtitle": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "bcvRate": { "type": "number" },
+        "eventCommissionRate": { "type": "number" },
+        "primaryColor": { "type": "string", "maxLength": 20 },
+        "primaryHoverColor": { "type": "string", "maxLength": 20 },
+        "secondaryColor": { "type": "string", "maxLength": 20 },
+        "bgColor": { "type": "string", "maxLength": 20 },
+        "enableSound": { "type": "boolean" },
+        "enableVibration": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["active", "suspended"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "ownerUid",
+        "name",
+        "slug",
+        "logoEmoji",
+        "adminPin",
+        "cajaPin",
+        "appName",
+        "subtitle",
+        "bcvRate",
+        "eventCommissionRate",
+        "primaryColor",
+        "secondaryColor",
+        "bgColor",
+        "enableSound",
+        "enableVibration",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ProviderAccount": {
+      "title": "ProviderAccount",
+      "description": "Vendor brand account belonging to a company with its own secret PIN.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "companyId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "brandName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "emoji": { "type": "string", "minLength": 1, "maxLength": 16 },
+        "pin": { "type": "string", "minLength": 4, "maxLength": 8, "pattern": "^[0-9]+$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "companyId", "ownerUid", "brandName", "emoji", "pin", "createdAt", "updatedAt"]
+    },
+    "Sticker": {
+      "title": "Sticker",
+      "description": "NFC wallet/tag belonging to a customer inside a company.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "companyId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "owner": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "balance": { "type": "number" },
+        "color": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "tagType": { "type": "string", "enum": ["NTAG215", "NTAG213", "MIFARE Ultralight", "Virtual"] },
+        "status": { "type": "string", "enum": ["active", "blocked"] },
+        "totalRecharged": { "type": "number" },
+        "totalSpent": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "companyId",
+        "ownerUid",
+        "owner",
+        "balance",
+        "color",
+        "tagType",
+        "status",
+        "totalRecharged",
+        "totalSpent",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Catalog product sold by a provider brand inside a company.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "companyId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "price": { "type": "number" },
+        "emoji": { "type": "string", "minLength": 1, "maxLength": 16 },
+        "provider": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "category": { "type": "string", "maxLength": 60 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "companyId", "ownerUid", "name", "price", "emoji", "provider", "createdAt", "updatedAt"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Financial transaction record (RECARGA, CONSUMO, REEMBOLSO) inside a company.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "companyId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "enum": ["RECARGA", "CONSUMO", "REEMBOLSO"] },
+        "stickerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "owner": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "usd": { "type": "number" },
+        "bs": { "type": "number" },
+        "bcvRate": { "type": "number" },
+        "detail": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "provider": { "type": "string", "maxLength": 100 },
+        "paymentMethod": { "type": "string", "maxLength": 60 },
+        "time": { "type": "string", "maxLength": 40 },
+        "timestamp": { "type": "number" },
+        "cartSnapshot": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "companyId",
+        "ownerUid",
+        "type",
+        "stickerId",
+        "owner",
+        "usd",
+        "bs",
+        "bcvRate",
+        "detail",
+        "time",
+        "timestamp",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/platform/{configId}": {
+      "schema": { "$ref": "#/entities/PlatformConfig" },
+      "description": "Global platform configuration and Super Admin secret PIN."
+    },
+    "/platform_public/{configId}": {
+      "schema": { "$ref": "#/entities/PlatformPublic" },
+      "description": "Home screen texts and registration toggle managed by Super Admin."
+    },
+    "/companies/{companyId}": {
+      "schema": { "$ref": "#/entities/Company" },
+      "description": "Tenant company configuration, BCV rate, and PINs."
+    },
+    "/companies/{companyId}/providers/{providerId}": {
+      "schema": { "$ref": "#/entities/ProviderAccount" },
+      "description": "Provider brands and their access PINs inside a company."
+    },
+    "/companies/{companyId}/stickers/{stickerId}": {
+      "schema": { "$ref": "#/entities/Sticker" },
+      "description": "Customer NFC stickers and balances inside a company."
+    },
+    "/companies/{companyId}/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Products offered by provider brands inside a company."
+    },
+    "/companies/{companyId}/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "Ledger of recharges and consumptions inside a company."
+    }
+  }
+}
